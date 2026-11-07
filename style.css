@@ -1020,7 +1020,7 @@ body {
   top: 0;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  max-height: 100vh;
   padding: 27px 17px 18px;
   background: linear-gradient(160deg, #1763d2 0%, #112d62 100%);
   color: #edf6f2;
@@ -1972,7 +1972,7 @@ body {
     top: 0;
     width: 250px;
     height: 100dvh;
-    min-height: 0;
+    max-height: 100vh;
     transform: translateX(-102%);
     transition: transform 0.2s ease;
   }
