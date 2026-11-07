@@ -40,6 +40,7 @@ require_once "db.php";
 
 if (!($conn instanceof mysqli)) {
     apiRespond(503, ["error" => "Database connection is unavailable. Check db.php and start MySQL."]);
+    return;
 }
 
 $userId = (int) $_SESSION["user_id"];
@@ -50,6 +51,7 @@ try {
         $tasksStmt = $conn->prepare(
             "SELECT t.id, t.title, t.project_id, COALESCE(p.name, '') AS project,
                     DATE_FORMAT(t.due_date, '%Y-%m-%d') AS due,
+                    DATE_FORMAT(t.due_at, '%H:%i') AS due_time,
                     t.priority, (t.is_completed = 1) AS completed
              FROM tasks t
              LEFT JOIN projects p ON p.id = t.project_id AND p.owner_user_id = t.user_id
@@ -80,7 +82,7 @@ try {
         $members = $membersStmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $membersStmt->close();
 
-        apiRespond(200, ["tasks" => $tasks, "projects" => $projects, "members" => $members]);
+        apiRespond(200, ["tasks" => $tasks, "projects" => $projects, "members" => $members, "push_public_key" => getenv("TASKFLOW_VAPID_PUBLIC_KEY") ?: ""]);
     }
 
     if ($method !== "POST") {
@@ -100,10 +102,48 @@ try {
 
     $action = $payload["action"] ?? "";
 
+    if ($action === "save_push_subscription") {
+        $subscription = $payload["subscription"] ?? [];
+        $endpoint = $subscription["endpoint"] ?? "";
+        $p256dh = $subscription["keys"]["p256dh"] ?? "";
+        $auth = $subscription["keys"]["auth"] ?? "";
+        $url = is_string($endpoint) ? parse_url($endpoint) : false;
+        $host = strtolower($url["host"] ?? "");
+        $allowed = false;
+        foreach (["fcm.googleapis.com", "push.services.mozilla.com", "push.apple.com", "notify.windows.com"] as $domain) {
+            if ($host === $domain || str_ends_with($host, "." . $domain)) $allowed = true;
+        }
+        if (!$url || ($url["scheme"] ?? "") !== "https" || !$allowed || isset($url["user"]) || isset($url["pass"]) || isset($url["fragment"]) || (isset($url["port"]) && $url["port"] !== 443) || strlen($endpoint) > 2048 || !is_string($p256dh) || !preg_match('/^[A-Za-z0-9_-]{87}$/D', $p256dh) || !is_string($auth) || !preg_match('/^[A-Za-z0-9_-]{22}$/D', $auth)) {
+            throw new InvalidArgumentException("Invalid push subscription.");
+        }
+        $hash = hash("sha256", $endpoint);
+        $stmt = $conn->prepare("INSERT INTO push_subscriptions (user_id, endpoint, endpoint_hash, p256dh, auth_key) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE created_at = IF(user_id <> VALUES(user_id), UTC_TIMESTAMP(), created_at), user_id = VALUES(user_id), p256dh = VALUES(p256dh), auth_key = VALUES(auth_key)");
+        $stmt->bind_param("issss", $userId, $endpoint, $hash, $p256dh, $auth);
+        $stmt->execute();
+        $_SESSION["push_endpoint_hash"] = $hash;
+        apiRespond(200, ["ok" => true]);
+    }
+
+    if ($action === "remove_push_subscription") {
+        $endpoint = $payload["endpoint"] ?? "";
+        if (!is_string($endpoint) || strlen($endpoint) > 2048) throw new InvalidArgumentException("Invalid push subscription.");
+        $hash = hash("sha256", $endpoint);
+        $stmt = $conn->prepare("DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint_hash = ?");
+        $stmt->bind_param("is", $userId, $hash);
+        $stmt->execute();
+        unset($_SESSION["push_endpoint_hash"]);
+        apiRespond(200, ["ok" => true]);
+    }
+
     if ($action === "create_task") {
         $title = trim((string) ($payload["title"] ?? ""));
         $priority = (string) ($payload["priority"] ?? "Medium");
         $dueDate = apiDate($payload["due"] ?? null);
+        $dueTime = $payload["due_time"] ?? "";
+        if ($dueDate !== null && (!is_string($dueTime) || !preg_match('/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/D', $dueTime))) {
+            throw new InvalidArgumentException("Enter a valid deadline time in UTC.");
+        }
+        $dueAt = $dueDate === null ? null : "$dueDate $dueTime:00";
         $projectId = null;
 
         if ($title === "" || strlen($title) > 100 || !in_array($priority, ["Low", "Medium", "High"], true)) {
@@ -126,10 +166,10 @@ try {
         }
 
         $stmt = $conn->prepare(
-            "INSERT INTO tasks (user_id, project_id, title, due_date, priority)
-             VALUES (?, ?, ?, ?, ?)"
+            "INSERT INTO tasks (user_id, project_id, title, due_date, due_at, priority)
+             VALUES (?, ?, ?, ?, ?, ?)"
         );
-        $stmt->bind_param("iisss", $userId, $projectId, $title, $dueDate, $priority);
+        $stmt->bind_param("iissss", $userId, $projectId, $title, $dueDate, $dueAt, $priority);
         $stmt->execute();
         $id = $conn->insert_id;
         $stmt->close();

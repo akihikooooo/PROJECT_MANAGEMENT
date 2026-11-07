@@ -1589,6 +1589,9 @@ body {
   align-items: end;
   gap: 12px;
 }
+.task-entry {
+  grid-template-columns: minmax(180px, 1.5fr) minmax(120px, 1fr) minmax(130px, 1fr) minmax(115px, 0.8fr) minmax(100px, 0.7fr) auto;
+}
 .project-entry {
   grid-template-columns: minmax(180px, 1.5fr) minmax(140px, 1fr) minmax(
       140px,
@@ -1945,6 +1948,7 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .entry-form,
+  .task-entry,
   .project-entry,
   .team-entry {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2069,6 +2073,7 @@ body {
     font-size: 14px;
   }
   .entry-form,
+  .task-entry,
   .project-entry,
   .team-entry {
     grid-template-columns: minmax(0, 1fr);

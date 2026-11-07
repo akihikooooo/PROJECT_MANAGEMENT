@@ -95,7 +95,7 @@
     return `<div class="task-row">
       <button class="task-check${isDone ? " is-done" : ""}" type="button" data-task-toggle="${escapeHtml(task.id)}" aria-label="${isDone ? "Mark as open" : "Mark as complete"}" aria-pressed="${isDone ? "true" : "false"}">✓</button>
       <div class="task-main"><div class="task-title${isDone ? " is-done" : ""}">${escapeHtml(task.title)}</div><div class="task-meta">${escapeHtml(task.project || "General")}</div></div>
-      <div class="task-trailing"><span class="priority-tag ${priorityClass(task.priority)}">${escapeHtml(task.priority)}</span><span class="${dateClass}">${escapeHtml(dueText)}</span>${allowDelete ? `<button class="delete-task" type="button" data-task-delete="${escapeHtml(task.id)}" aria-label="Delete ${escapeHtml(task.title)}" title="Delete task">×</button>` : ""}</div>
+      <div class="task-trailing"><span class="priority-tag ${priorityClass(task.priority)}">${escapeHtml(task.priority)}</span><span class="${dateClass}">${escapeHtml(dueText)}${task.due_time ? ` · ${escapeHtml(task.due_time)} UTC` : ""}</span>${allowDelete ? `<button class="delete-task" type="button" data-task-delete="${escapeHtml(task.id)}" aria-label="Delete ${escapeHtml(task.title)}" title="Delete task">×</button>` : ""}</div>
     </div>`;
   }
 
@@ -397,6 +397,7 @@
           title: String(values.get("title")).trim(),
           project_id: values.get("project_id") || null,
           due: values.get("due") || null,
+          due_time: values.get("due_time"),
           priority: values.get("priority"),
         });
         form.reset();
@@ -495,6 +496,56 @@
 
   const dueInput = document.querySelector('[data-task-form] [name="due"]');
   if (dueInput) dueInput.value = dateString(new Date());
+  const pushButton = document.querySelector("[data-push-toggle]");
+  const pushStatus = document.querySelector("[data-push-status]");
+  async function setupPush() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+      if (pushStatus) pushStatus.textContent = "Notifications are not supported by this browser.";
+      return;
+    }
+    const data = await requestApi("GET");
+    if (!data.push_public_key) {
+      if (pushStatus) pushStatus.textContent = "Notifications are not configured on the server.";
+      return;
+    }
+    const registration = await navigator.serviceWorker.register("service-worker.js");
+    let subscription = await registration.pushManager.getSubscription();
+    if (subscription) await requestApi("POST", { action: "save_push_subscription", subscription: subscription.toJSON() });
+    if (!pushButton) return;
+    function updateButton() {
+      pushButton.disabled = Notification.permission === "denied";
+      pushButton.textContent = subscription ? "Disable notifications" : "Enable notifications";
+      pushStatus.textContent = Notification.permission === "denied" ? "Notifications are blocked in your browser settings." : "";
+    }
+    updateButton();
+    pushButton.addEventListener("click", async () => {
+      pushButton.disabled = true;
+      try {
+        if (subscription) {
+          await requestApi("POST", { action: "remove_push_subscription", endpoint: subscription.endpoint });
+          await subscription.unsubscribe();
+          subscription = null;
+        } else {
+          if (await Notification.requestPermission() !== "granted") throw new Error("Notification permission was not granted.");
+          const key = data.push_public_key.replace(/-/g, "+").replace(/_/g, "/");
+          const bytes = Uint8Array.from(atob(key.padEnd(Math.ceil(key.length / 4) * 4, "=")), (c) => c.charCodeAt(0));
+          subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
+          try {
+            await requestApi("POST", { action: "save_push_subscription", subscription: subscription.toJSON() });
+          } catch (error) {
+            await subscription.unsubscribe();
+            subscription = null;
+            throw error;
+          }
+        }
+        updateButton();
+      } catch (error) {
+        updateButton();
+        pushStatus.textContent = error.message;
+      }
+    });
+  }
+  setupPush().catch((error) => { if (pushStatus) pushStatus.textContent = error.message; });
   renderAll();
   reloadData().catch((error) => showFeedback(error.message, true));
 })();

@@ -40,17 +40,42 @@ CREATE TABLE IF NOT EXISTS tasks (
     project_id BIGINT UNSIGNED NULL,
     title VARCHAR(100) NOT NULL,
     due_date DATE NULL,
+    due_at DATETIME NULL,
     priority ENUM('Low', 'Medium', 'High') NOT NULL DEFAULT 'Medium',
     is_completed TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_tasks_user_due (user_id, due_date),
+    KEY idx_tasks_reminder (is_completed, due_at),
     KEY idx_tasks_project (project_id),
     CONSTRAINT fk_tasks_user FOREIGN KEY (user_id)
         REFERENCES users (id) ON DELETE CASCADE,
     CONSTRAINT fk_tasks_project FOREIGN KEY (project_id)
         REFERENCES projects (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    endpoint VARCHAR(2048) NOT NULL,
+    endpoint_hash CHAR(64) NOT NULL UNIQUE,
+    p256dh VARCHAR(255) NOT NULL,
+    auth_key VARCHAR(255) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_push_user (user_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS push_reminders (
+    task_id BIGINT UNSIGNED NOT NULL,
+    subscription_id BIGINT UNSIGNED NOT NULL,
+    deadline DATETIME NOT NULL,
+    hours_before TINYINT UNSIGNED NOT NULL,
+    sent_at DATETIME NULL,
+    PRIMARY KEY (task_id, subscription_id, deadline, hours_before),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (subscription_id) REFERENCES push_subscriptions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS team_members (

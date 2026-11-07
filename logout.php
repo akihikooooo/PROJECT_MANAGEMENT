@@ -3,6 +3,14 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 	session_start();
 }
 
+if (!empty($_SESSION["user_id"]) && !empty($_SESSION["push_endpoint_hash"])) {
+	require_once "db.php";
+	if ($conn instanceof mysqli) {
+		$stmt = $conn->prepare("DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint_hash = ?");
+		$stmt->bind_param("is", $_SESSION["user_id"], $_SESSION["push_endpoint_hash"]);
+		$stmt->execute();
+	}
+}
 $_SESSION = [];
 
 if (ini_get("session.use_cookies")) {

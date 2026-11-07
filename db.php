@@ -11,6 +11,7 @@ $conn = null;
 try {
 	$conn = new mysqli($dbHost, $dbUser, $dbPassword, $dbName);
 	$conn->set_charset("utf8mb4");
+	$conn->query("SET time_zone = '+00:00'");
 } catch (mysqli_sql_exception $exception) {
 	error_log("TaskFlow database connection failed: " . $exception->getMessage());
 }
