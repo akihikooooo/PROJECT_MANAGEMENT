@@ -5,7 +5,10 @@ renderAppHeader("calendar", "Calendar", "See deadlines and keep the week in view
 ?>
 <section class="surface-card calendar-surface">
 	<div class="calendar-toolbar">
-		<div><h2 data-calendar-month>Month</h2><p>Deadlines from your task list</p></div>
+		<div>
+			<h2 data-calendar-month>Month</h2>
+			<p>Deadlines from your task list</p>
+		</div>
 		<div class="calendar-controls">
 			<button class="icon-button" type="button" data-calendar-prev aria-label="Previous month">←</button>
 			<button class="today-button" type="button" data-calendar-today>Today</button>
@@ -24,11 +27,13 @@ renderAppHeader("calendar", "Calendar", "See deadlines and keep the week in view
 	<div class="calendar-month-grid" data-calendar-grid></div>
 </section>
 <section class="surface-card calendar-agenda">
-	<div class="section-heading"><div><h2>Scheduled tasks</h2>
-	<p>Upcoming deadlines from your workspace.</p>
-</div>
-<a class="text-link" href="my_task.php">Manage tasks <span aria-hidden="true">→</span></a>
-</div>
+	<div class="section-heading">
+		<div>
+			<h2>Scheduled tasks</h2>
+			<p>Upcoming deadlines from your workspace.</p>
+		</div>
+		<a class="text-link" href="my_task.php">Manage tasks <span aria-hidden="true">→</span></a>
+	</div>
 	<div class="upcoming-list" data-calendar-agenda></div>
 </section>
 <?php renderAppFooter(); ?>

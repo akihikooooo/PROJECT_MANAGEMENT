@@ -31,9 +31,10 @@ function renderAppHeader(string $activePage, string $pageTitle, string $pageSubt
         "project" => ["project.php", "Projects", "▤"],
         "team_management" => ["team_management.php", "Team", "♧"],
     ];
-    ?>
+?>
     <!DOCTYPE html>
     <html lang="en">
+
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -44,6 +45,7 @@ function renderAppHeader(string $activePage, string $pageTitle, string $pageSubt
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
         <link rel="stylesheet" href="style.css">
     </head>
+
     <body class="app-body" data-page="<?= appEscape($activePage) ?>">
         <div class="app-shell">
             <aside class="app-sidebar" id="app-sidebar">
@@ -51,7 +53,7 @@ function renderAppHeader(string $activePage, string $pageTitle, string $pageSubt
                 <div class="workspace-label">WORKSPACE</div>
                 <nav class="app-nav" aria-label="Main navigation">
                     <?php foreach ($navigation as $key => [$href, $label, $icon]): ?>
-                        <a class="app-nav-link<?= $activePage === $key ? " active" : "" ?>" href="<?= appEscape($href) ?>"<?= $activePage === $key ? ' aria-current="page"' : "" ?>>
+                        <a class="app-nav-link<?= $activePage === $key ? " active" : "" ?>" href="<?= appEscape($href) ?>" <?= $activePage === $key ? ' aria-current="page"' : "" ?>>
                             <span class="nav-icon" aria-hidden="true"><?= appEscape($icon) ?></span><span><?= appEscape($label) ?></span>
                         </a>
                     <?php endforeach; ?>
@@ -68,20 +70,27 @@ function renderAppHeader(string $activePage, string $pageTitle, string $pageSubt
                     <div class="topbar-user"><span class="topbar-avatar"><?= appEscape($initial) ?></span><span><?= appEscape($userName) ?></span></div>
                 </header>
                 <div class="app-content">
-                    <div class="page-heading"><div><p class="eyebrow">TASKFLOW WORKSPACE</p><h1><?= appEscape($pageTitle) ?></h1><p class="page-subtitle"><?= appEscape($pageSubtitle) ?></p></div></div>
+                    <div class="page-heading">
+                        <div>
+                            <p class="eyebrow">TASKFLOW WORKSPACE</p>
+                            <h1><?= appEscape($pageTitle) ?></h1>
+                            <p class="page-subtitle"><?= appEscape($pageSubtitle) ?></p>
+                        </div>
+                    </div>
                     <div class="app-feedback" data-feedback role="status" aria-live="polite" hidden></div>
-    <?php
-}
+                <?php
+            }
 
-function renderAppFooter(): void
-{
-    ?>
+            function renderAppFooter(): void
+            {
+                ?>
                 </div>
             </main>
         </div>
         <div class="mobile-scrim" data-menu-close></div>
         <script src="script.js" defer></script>
     </body>
+
     </html>
-    <?php
-}
+<?php
+            }
