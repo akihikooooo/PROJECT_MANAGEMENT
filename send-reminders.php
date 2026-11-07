@@ -48,7 +48,7 @@ foreach ([72, 24] as $hours) {
                 AND s.created_at <= DATE_SUB(t.due_at, INTERVAL ? HOUR)
                 AND r.sent_at IS NULL";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param('iii', $hours, $hours, $hours);
+    $stmt->bind_param('iiii', $hours, $hours, $hours, $hours);
     $stmt->execute();
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
