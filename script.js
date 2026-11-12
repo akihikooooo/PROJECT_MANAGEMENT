@@ -95,7 +95,7 @@
     return `<div class="task-row">
       <button class="task-check${isDone ? " is-done" : ""}" type="button" data-task-toggle="${escapeHtml(task.id)}" aria-label="${isDone ? "Mark as open" : "Mark as complete"}" aria-pressed="${isDone ? "true" : "false"}">✓</button>
       <div class="task-main"><div class="task-title${isDone ? " is-done" : ""}">${escapeHtml(task.title)}</div><div class="task-meta">${escapeHtml(task.project || "General")}</div></div>
-      <div class="task-trailing"><span class="priority-tag ${priorityClass(task.priority)}">${escapeHtml(task.priority)}</span><span class="${dateClass}">${escapeHtml(dueText)}${task.due_time ? ` · ${escapeHtml(task.due_time)} UTC` : ""}</span>${allowDelete ? `<button class="delete-task" type="button" data-task-delete="${escapeHtml(task.id)}" aria-label="Delete ${escapeHtml(task.title)}" title="Delete task">×</button>` : ""}</div>
+      <div class="task-trailing"><span class="priority-tag ${priorityClass(task.priority)}">${escapeHtml(task.priority)}</span><span class="${dateClass}">${escapeHtml(dueText)}${task.due_time ? ` · ${escapeHtml(task.due_time)}` : ""}</span>${allowDelete ? `<button class="delete-task" type="button" data-task-delete="${escapeHtml(task.id)}" aria-label="Delete ${escapeHtml(task.title)}" title="Delete task">×</button>` : ""}</div>
     </div>`;
   }
 
@@ -328,7 +328,11 @@
 
   async function reloadData() {
     const data = await requestApi("GET");
-    state.tasks = data.tasks || [];
+    state.tasks = (data.tasks || []).map((task) => {
+      if (!task.due || !task.due_time) return task;
+      const date = new Date(`${task.due}T${task.due_time}:00Z`);
+      return { ...task, due: dateString(date), due_time: `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}` };
+    });
     state.projects = data.projects || [];
     state.members = data.members || [];
     renderAll();
@@ -392,12 +396,19 @@
       const form = event.currentTarget;
       const values = new FormData(form);
       try {
+        const localDate = values.get("due");
+        const localTime = values.get("due_time");
+        const deadline = new Date(`${localDate}T${localTime}:00`);
+        if (Number.isNaN(deadline.getTime()) || dateString(deadline) !== localDate || `${String(deadline.getHours()).padStart(2, "0")}:${String(deadline.getMinutes()).padStart(2, "0")}` !== localTime) {
+          throw new Error("Enter a valid local deadline time.");
+        }
+        const utc = deadline.toISOString();
         await performAction({
           action: "create_task",
           title: String(values.get("title")).trim(),
           project_id: values.get("project_id") || null,
-          due: values.get("due") || null,
-          due_time: values.get("due_time"),
+          due: utc.slice(0, 10),
+          due_time: utc.slice(11, 16),
           priority: values.get("priority"),
         });
         form.reset();

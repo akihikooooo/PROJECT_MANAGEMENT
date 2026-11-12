@@ -34,7 +34,11 @@ $webPush = new WebPush(['VAPID' => [
     'subject' => $subject, 'publicKey' => $publicKey, 'privateKey' => $privateKey,
 ]]);
 
-foreach ([72, 24] as $hours) {
+foreach ([72, 24, 0] as $hours) {
+    // shortcut: deadline alerts expire after 24 hours, extend if longer catch-up is needed.
+    $deadlineWindow = $hours === 0
+        ? "t.due_at <= UTC_TIMESTAMP() AND t.due_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)"
+        : "t.due_at > UTC_TIMESTAMP()";
     $sql = "SELECT t.id AS task_id, t.title, t.due_at, s.id AS subscription_id,
                    s.endpoint, s.p256dh, s.auth_key
             FROM tasks t
@@ -42,7 +46,7 @@ foreach ([72, 24] as $hours) {
             JOIN push_subscriptions s ON s.user_id = t.user_id
             LEFT JOIN push_reminders r ON r.task_id = t.id AND r.subscription_id = s.id
                 AND r.deadline = t.due_at AND r.hours_before = ?
-            WHERE t.is_completed = 0 AND t.due_at > UTC_TIMESTAMP()
+            WHERE t.is_completed = 0 AND $deadlineWindow
                 AND DATE_SUB(t.due_at, INTERVAL ? HOUR) <= UTC_TIMESTAMP()
                 AND t.created_at <= DATE_SUB(t.due_at, INTERVAL ? HOUR)
                 AND s.created_at <= DATE_SUB(t.due_at, INTERVAL ? HOUR)
@@ -54,7 +58,7 @@ foreach ([72, 24] as $hours) {
     $stmt->close();
     foreach ($rows as $row) {
         // Recheck immediately before delivery so changed or completed tasks are skipped.
-        $check = $conn->prepare("SELECT 1 FROM tasks t JOIN users u ON u.id = t.user_id JOIN push_subscriptions s ON s.user_id = t.user_id WHERE t.id = ? AND s.id = ? AND t.due_at = ? AND t.is_completed = 0 AND t.due_at > UTC_TIMESTAMP() AND u.status = 'active'");
+        $check = $conn->prepare("SELECT 1 FROM tasks t JOIN users u ON u.id = t.user_id JOIN push_subscriptions s ON s.user_id = t.user_id WHERE t.id = ? AND s.id = ? AND t.due_at = ? AND t.is_completed = 0 AND $deadlineWindow AND u.status = 'active'");
         $check->bind_param('iis', $row['task_id'], $row['subscription_id'], $row['due_at']);
         $check->execute();
         $eligible = $check->get_result()->fetch_row();
@@ -64,9 +68,12 @@ foreach ([72, 24] as $hours) {
             $subscription = Subscription::create(['endpoint' => $row['endpoint'], 'keys' => [
                 'p256dh' => $row['p256dh'], 'auth' => $row['auth_key'],
             ]]);
-            $ttl = max(0, strtotime($row['due_at'] . ' UTC') - time());
+            $ttl = $hours === 0 ? 86400 : max(0, strtotime($row['due_at'] . ' UTC') - time());
             $report = $webPush->sendOneNotification($subscription, json_encode([
                 'body' => $row['title'] . ' is due at ' . substr($row['due_at'], 0, 16) . ' UTC.',
+                'title' => $row['title'],
+                'deadline' => str_replace(' ', 'T', $row['due_at']) . 'Z',
+                'reached' => $hours === 0,
             ], JSON_THROW_ON_ERROR), ['TTL' => $ttl]);
             if ($report->isSuccess()) {
                 $save = $conn->prepare("INSERT INTO push_reminders (task_id, subscription_id, deadline, hours_before, sent_at) VALUES (?, ?, ?, ?, UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE sent_at = VALUES(sent_at)");

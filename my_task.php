@@ -17,7 +17,7 @@ renderAppHeader("my_task", "My tasks", "Capture the next action and keep your pr
 				<option value="">No project</option>
 			</select></label>
 		<label class="field"><span>Due date</span><input name="due" type="date" required></label>
-		<label class="field"><span>Due time (UTC)</span><input name="due_time" type="time" value="23:59" required></label>
+		<label class="field"><span>Due time (local)</span><input name="due_time" type="time" value="23:59" required></label>
 		<label class="field"><span>Priority</span><select name="priority">
 				<option>Medium</option>
 				<option>High</option>
@@ -27,7 +27,7 @@ renderAppHeader("my_task", "My tasks", "Capture the next action and keep your pr
 	</form>
 </section>
 <section class="surface-card form-surface">
-	<div class="section-heading"><div><h2>Deadline reminders</h2><p>Get notifications 72 and 24 hours before a task is due.</p></div></div>
+	<div class="section-heading"><div><h2>Deadline reminders</h2><p>Get notifications 72 and 24 hours before a task is due, and when it reaches its deadline.</p></div></div>
 	<button class="primary-button" type="button" data-push-toggle disabled>Checking notifications…</button>
 	<p data-push-status role="status"></p>
 </section>

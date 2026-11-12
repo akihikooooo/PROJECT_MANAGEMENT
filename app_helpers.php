@@ -88,7 +88,7 @@ function renderAppHeader(string $activePage, string $pageTitle, string $pageSubt
             </main>
         </div>
         <div class="mobile-scrim" data-menu-close></div>
-        <script src="script.js" defer></script>
+        <script src="script.js?v=<?= filemtime(__DIR__ . '/script.js') ?>" defer></script>
     </body>
 
     </html>

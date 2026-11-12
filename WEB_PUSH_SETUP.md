@@ -1,6 +1,6 @@
 # Set up task reminders on Windows with XAMPP
 
-This guide helps you set up browser notifications for TaskFlow on a Windows computer. When it is set up, TaskFlow can remind you **72 hours and 24 hours before an open task is due**.
+This guide helps you set up browser notifications for TaskFlow on a Windows computer. When it is set up, TaskFlow can remind you **72 hours and 24 hours before an open task is due, and when it reaches its deadline**.
 
 Allow about 20–30 minutes. You will install one additional tool, Composer, and configure a scheduled task in Windows.
 
@@ -151,17 +151,17 @@ Each browser/device needs its own subscription. Signing out removes that browser
 
 ## 7. Test a reminder in a few minutes
 
-The task form uses **UTC**, not your computer's local time. In PowerShell, run:
+The task form uses your browser's local time. In PowerShell, run:
 
 ```powershell
-(Get-Date).ToUniversalTime().AddHours(72).AddMinutes(5).ToString('yyyy-MM-dd HH:mm')
+(Get-Date).AddHours(72).AddMinutes(5).ToString('yyyy-MM-dd HH:mm')
 ```
 
 Create a test task with the displayed date and time in the TaskFlow form. This makes its 72-hour reminder due about five minutes later. Keep the browser notification permission enabled, the computer awake, MySQL running, and the scheduler enabled. Allow an extra minute or two for the job and push service.
 
 You can also check `push_reminders` in phpMyAdmin: a row with `hours_before` equal to `72` and a `sent_at` value means the push service accepted that reminder. It does not prove that Windows displayed the notification.
 
-The task and browser subscription must both exist **before** a reminder threshold. For example, creating a task 30 hours before its deadline will not send its already-passed 72-hour reminder; it can still send the 24-hour reminder. Completed or deleted tasks do not receive new reminders.
+The task and browser subscription must both exist **before** a reminder threshold. For example, creating a task 30 hours before its deadline will not send its already-passed 72-hour reminder; it can still send the 24-hour and deadline reminders. Deadline reminders are sent on the next scheduler run, up to 24 hours late. Completed or deleted tasks do not receive new reminders.
 
 ## Troubleshooting
 
@@ -170,7 +170,7 @@ The task and browser subscription must both exist **before** a reminder threshol
 - **“VAPID configuration is missing.”** Check all three `TASKFLOW_VAPID_*` values in the batch file. The private key belongs only in the protected job file.
 - **“Database unavailable.”** Start MySQL in XAMPP and check the host, database name, username, and password in the job file. Make sure the web app uses the same database.
 - **Composer or a library is missing.** Run `composer install --no-dev` from the project folder using XAMPP PHP 8.2 or later. The dependency list includes the HTTP client needed by Web Push.
-- **No notification at the expected time.** Check that the task's deadline is UTC, the task and subscription existed before the threshold, the task is still open, and the computer and MySQL are running. In Task Scheduler, check the task is enabled and its last run result. Check `reminders.log` and XAMPP's configured PHP error log; PHP errors may not appear in the batch file's log.
+- **No notification at the expected time.** Check the task's deadline and browser time zone, that the task and subscription existed before the threshold, that the task is still open, and that the computer and MySQL are running. In Task Scheduler, check the task is enabled and its last run result. Check `reminders.log` and XAMPP's configured PHP error log; PHP errors may not appear in the batch file's log.
 - **The push service accepted the reminder but nothing appeared.** Check browser permission, Windows notification settings, and the browser's notification support. A service acceptance is not a guarantee that a notification was displayed.
 
 A temporary delivery failure is retried while the task is eligible and before its deadline. A crash just after the push service accepts a message could cause a duplicate on retry. A notification already accepted by a push service cannot be recalled if the task is later completed or deleted.
